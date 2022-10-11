@@ -23,65 +23,91 @@ async function addSources(deoptInfo) {
 	const files = Object.keys(deoptInfo);
 	const root = determineCommonRoot(files);
 
+	let arr = [];
+
 	/** @type {Record<string, import('v8-deopt-webapp/src/index').V8DeoptInfoWithSources>} */
-	const result = Object.create(null);
+	let result = Object.create(null);
 	for (let file of files) {
-		let srcPath;
+		const fileDepotInfo = deoptInfo[file];
+		let info = {
+			codes: [0, 0, 0],
+			deopts: [0, 0, 0],
+			ics: [0, 0, 0],
+		};
 
-		let src, srcError;
-		if (file.startsWith("https://") || file.startsWith("http://")) {
-			try {
-				srcPath = file;
-				const { data } = await get(file);
-				src = data;
-			} catch (e) {
-				srcError = e;
+		for (let kind of ["codes", "deopts", "ics"]) {
+			const entries = fileDepotInfo[kind];
+			for (let entry of entries) {
+				info[kind][entry.severity - 1]++;
 			}
-		} else {
-			let filePath = file;
-			if (file.startsWith("file://")) {
-				// Convert Linux-like file URLs for Windows and assume C: root. Useful for testing
-				if (
-					process.platform == "win32" &&
-					!file.match(/^file:\/\/\/[a-zA-z]:/)
-				) {
-					filePath = fileURLToPath(file.replace(/^file:\/\/\//, "file:///C:/"));
-				} else {
-					filePath = fileURLToPath(file);
-				}
-			}
+		}
 
-			if (path.isAbsolute(filePath)) {
+		let count = info["deopts"][1] + info["deopts"][2] + info["ics"][1] + info["ics"][2];
+		arr.push([file, count]);
+		if(count > 0){
+			let srcPath;
+
+			let src, srcError;
+			if (file.startsWith("https://") || file.startsWith("http://")) {
 				try {
-					srcPath = filePath;
-					src = await readFile(filePath, "utf8");
+					srcPath = file;
+					const { data } = await get(file);
+					src = data;
 				} catch (e) {
 					srcError = e;
 				}
 			} else {
-				srcError = new Error("File path is not absolute");
+				let filePath = file;
+				if (file.startsWith("file://")) {
+					// Convert Linux-like file URLs for Windows and assume C: root. Useful for testing
+					if (
+						process.platform == "win32" &&
+						!file.match(/^file:\/\/\/[a-zA-z]:/)
+					) {
+						filePath = fileURLToPath(file.replace(/^file:\/\/\//, "file:///C:/"));
+					} else {
+						filePath = fileURLToPath(file);
+					}
+				}
+	
+				if (path.isAbsolute(filePath)) {
+					try {
+						srcPath = filePath;
+						src = await readFile(filePath, "utf8");
+					} catch (e) {
+						srcError = e;
+					}
+				} else {
+					srcError = new Error("File path is not absolute");
+				}
 			}
-		}
-
-		const relativePath = root ? file.slice(root.length) : file;
-		if (srcError) {
-			result[file] = {
-				...deoptInfo[file],
-				relativePath,
-				srcPath,
-				srcError: srcError.toString(),
-			};
-		} else {
-			result[file] = {
-				...deoptInfo[file],
-				relativePath,
-				srcPath,
-				src,
-			};
+	
+			const relativePath = root ? file.slice(root.length) : file;
+			if (srcError) {
+				result[file] = {
+					...deoptInfo[file],
+					relativePath,
+					srcPath,
+					srcError: srcError.toString(),
+				};
+			} else {
+				result[file] = {
+					...deoptInfo[file],
+					relativePath,
+					srcPath,
+					src,
+				};
+			}
 		}
 	}
 
-	return result;
+	arr.sort((a, b) => b[1] - a[1]);
+	let obj = {};
+	for(let file of arr){
+		obj[file[0]] = result[file[0]]; 
+	}
+
+	return obj;
 }
 
 /**
@@ -113,7 +139,7 @@ export default async function run(srcFile, options) {
 	console.log("Parsing log...");
 
 	const fd = await openFile(logFilePath);
-	const { buffer: logContentsSlice } = await fd.read({length: 64 * 1024 * 1024});
+	const { buffer: logContentsSlice } = await fd.read({length: 16 * 1024});
 	await fd.close();
 
 	// New IC format has 10 values instead of 9
@@ -126,7 +152,7 @@ export default async function run(srcFile, options) {
 	// 64 * 2 ** 20 (~64 mb) seems to be safe enough
 	const logContentsStream = await createReadStream(
 		logFilePath,
-		{ encoding: 'utf8', highWaterMark: 64 * 1024 * 1024},
+		{ encoding: 'utf8', highWaterMark: 16 * 1024},
 	);
 	const rawDeoptInfo = await parseV8LogStream(logContentsStream, {
 		keepInternals: options["keep-internals"],
