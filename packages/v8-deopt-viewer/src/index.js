@@ -15,6 +15,8 @@ import { createRequire } from "module";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const templatePath = path.join(__dirname, "template.html");
 
+let pathToweb4;
+
 /**
  * @param {import('v8-deopt-parser').PerFileV8DeoptInfo["files"]} deoptInfo
  * @returns {Promise<Record<string, import('v8-deopt-webapp/src/index').V8DeoptInfoWithSources>>}
@@ -44,45 +46,69 @@ async function addSources(deoptInfo) {
 
 		let count = info["deopts"][1] + info["deopts"][2] + info["ics"][1] + info["ics"][2];
 		arr.push([file, count]);
-		if(count > 0){
+		if (count > 0) {
 			let srcPath;
 
 			let src, srcError;
-			if (file.startsWith("https://") || file.startsWith("http://")) {
-				try {
-					srcPath = file;
-					const { data } = await get(file);
-					src = data;
-				} catch (e) {
-					srcError = e;
-				}
-			} else {
-				let filePath = file;
-				if (file.startsWith("file://")) {
-					// Convert Linux-like file URLs for Windows and assume C: root. Useful for testing
-					if (
-						process.platform == "win32" &&
-						!file.match(/^file:\/\/\/[a-zA-z]:/)
-					) {
-						filePath = fileURLToPath(file.replace(/^file:\/\/\//, "file:///C:/"));
-					} else {
-						filePath = fileURLToPath(file);
-					}
-				}
-	
-				if (path.isAbsolute(filePath)) {
+			let relativePath;
+
+			if (pathToweb4 == undefined) {
+				if (file.startsWith("https://") || file.startsWith("http://")) {
 					try {
-						srcPath = filePath;
-						src = await readFile(filePath, "utf8");
+						srcPath = file;
+						const { data } = await get(file);
+						src = data;
 					} catch (e) {
 						srcError = e;
 					}
 				} else {
-					srcError = new Error("File path is not absolute");
+					let filePath = file;
+					if (file.startsWith("file://")) {
+						// Convert Linux-like file URLs for Windows and assume C: root. Useful for testing
+						if (
+							process.platform == "win32" &&
+							!file.match(/^file:\/\/\/[a-zA-z]:/)
+						) {
+							filePath = fileURLToPath(file.replace(/^file:\/\/\//, "file:///C:/"));
+						} else {
+							filePath = fileURLToPath(file);
+						}
+					}
+
+					if (path.isAbsolute(filePath)) {
+						try {
+							srcPath = filePath;
+							src = await readFile(filePath, "utf8");
+						} catch (e) {
+							srcError = e;
+						}
+					} else {
+						srcError = new Error("File path is not absolute");
+					}
 				}
+
+				relativePath = root ? file.slice(root.length) : file;
+			} else {
+				let file1 = file;
+				let regexReportRender = /report-render/;
+				let index = file1.search(regexReportRender);
+				// console.log(index + " " + file1);
+				let myRelative = null;
+				if (index !== -1) {
+					// console.log("Find!" + index);
+					myRelative = file1.slice(index);
+					file1 = pathToweb4 + file1.slice(index);
+					// console.log(file);
+				} else {
+					let regex = new RegExp("/place/db/iss3/instances/renderer-load-test-22_renderer_load_test_LaaagRr2BjU/courier-data/unpacked-resources/templates-web4.tar.gz_df611ad55574a6d1becf697a198eff80/b3fbe02f01be5700523e88869ef48578/");
+					myRelative = file1.replace(regex, "");
+					file1 = pathToweb4 + myRelative;
+					console.log(file1);
+				}
+				srcPath = file1;
+				relativePath = myRelative;
 			}
-	
-			const relativePath = root ? file.slice(root.length) : file;
+
 			if (srcError) {
 				result[file] = {
 					...deoptInfo[file],
@@ -103,8 +129,8 @@ async function addSources(deoptInfo) {
 
 	arr.sort((a, b) => b[1] - a[1]);
 	let obj = {};
-	for(let file of arr){
-		obj[file[0]] = result[file[0]]; 
+	for (let file of arr) {
+		obj[file[0]] = result[file[0]];
 	}
 
 	return obj;
@@ -139,7 +165,7 @@ export default async function run(srcFile, options) {
 	console.log("Parsing log...");
 
 	const fd = await openFile(logFilePath);
-	const { buffer: logContentsSlice } = await fd.read({length: 16 * 1024});
+	const { buffer: logContentsSlice } = await fd.read({ length: 16 * 1024 });
 	await fd.close();
 
 	// New IC format has 10 values instead of 9
@@ -152,7 +178,7 @@ export default async function run(srcFile, options) {
 	// 64 * 2 ** 20 (~64 mb) seems to be safe enough
 	const logContentsStream = await createReadStream(
 		logFilePath,
-		{ encoding: 'utf8', highWaterMark: 16 * 1024},
+		{ encoding: 'utf8', highWaterMark: 16 * 1024 },
 	);
 	const rawDeoptInfo = await parseV8LogStream(logContentsStream, {
 		keepInternals: options["keep-internals"],
@@ -160,7 +186,7 @@ export default async function run(srcFile, options) {
 	});
 
 	console.log("Adding sources...");
-
+	pathToweb4 = options.path;
 	// Group DeoptInfo by files and extend the files data with sources
 	const groupDeoptInfo = groupByFile(rawDeoptInfo);
 	const deoptInfo = {
