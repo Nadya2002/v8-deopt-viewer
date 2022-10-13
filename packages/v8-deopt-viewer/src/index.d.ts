@@ -5,6 +5,8 @@ interface Options {
 	["skip-maps"]: boolean;
 	open: boolean;
 	input: string;
+	path: string;
+	view: boolean;
 }
 
 export default async function run(

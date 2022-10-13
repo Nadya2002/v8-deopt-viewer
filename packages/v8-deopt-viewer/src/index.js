@@ -15,7 +15,7 @@ import { createRequire } from "module";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const templatePath = path.join(__dirname, "template.html");
 
-let pathToweb4;
+let pathToweb4, view;
 
 /**
  * @param {import('v8-deopt-parser').PerFileV8DeoptInfo["files"]} deoptInfo
@@ -46,7 +46,7 @@ async function addSources(deoptInfo) {
 
 		let count = info["deopts"][1] + info["deopts"][2] + info["ics"][1] + info["ics"][2];
 		arr.push([file, count]);
-		if (count > 0) {
+		if (count > 0 || view) {
 			let srcPath;
 
 			let src, srcError;
@@ -97,15 +97,23 @@ async function addSources(deoptInfo) {
 				if (index !== -1) {
 					// console.log("Find!" + index);
 					myRelative = file1.slice(index);
-					file1 = pathToweb4 + file1.slice(index);
-					// console.log(file);
+					file1 = pathToweb4 + "report-renderer/" + file1.slice(index);
+					// console.log("render = " + file1);
 				} else {
-					let regex = new RegExp("/place/db/iss3/instances/renderer-load-test-22_renderer_load_test_LaaagRr2BjU/courier-data/unpacked-resources/templates-web4.tar.gz_df611ad55574a6d1becf697a198eff80/b3fbe02f01be5700523e88869ef48578/");
+					let regex = new RegExp("/place/db/iss3/instances/renderer-load-test-22_renderer_load_test_gELnJxNKudV/courier-data/unpacked-resources/templates-web4.tar.gz_df611ad55574a6d1becf697a198eff80/7f0f097c4610c46659adfc85e5b21c7f/");
 					myRelative = file1.replace(regex, "");
-					file1 = pathToweb4 + myRelative;
-					console.log(file1);
+					file1 = pathToweb4 + "web4/" + myRelative;
+					// console.log(file1);
 				}
-				srcPath = file1;
+
+				let filePath = file1;
+				try {
+					srcPath = filePath;
+					src = await readFile(filePath, "utf8");
+				} catch (e) {
+					srcError = e;
+				}
+
 				relativePath = myRelative;
 			}
 
@@ -187,6 +195,7 @@ export default async function run(srcFile, options) {
 
 	console.log("Adding sources...");
 	pathToweb4 = options.path;
+	view = options.view;
 	// Group DeoptInfo by files and extend the files data with sources
 	const groupDeoptInfo = groupByFile(rawDeoptInfo);
 	const deoptInfo = {

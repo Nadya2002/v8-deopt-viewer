@@ -32,5 +32,6 @@ sade("v8-deopt-viewer [file]", true)
 	.option("--skip-maps", "Skip tracing internal maps of V8", false)
 	.option("--open", "Open the resulting webapp in a web browser", false)
 	.option("-p --path", "Where locate web4")
+	.option("--view", "view little deopt", false)
 	.action(run)
 	.parse(process.argv);
