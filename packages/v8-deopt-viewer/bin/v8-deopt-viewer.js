@@ -33,5 +33,7 @@ sade("v8-deopt-viewer [file]", true)
 	.option("--open", "Open the resulting webapp in a web browser", false)
 	.option("-p --path", "Where locate web4")
 	.option("--view", "view little deopt", false)
+	.option("--template", "What need cut in file path")
+	.option("--web-resource", "Name folder fith resourse web4")
 	.action(run)
 	.parse(process.argv);

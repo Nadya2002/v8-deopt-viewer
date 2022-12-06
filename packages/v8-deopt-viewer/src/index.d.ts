@@ -7,6 +7,8 @@ interface Options {
 	input: string;
 	path: string;
 	view: boolean;
+	template: string;
+	["web-resource"]: string;
 }
 
 export default async function run(
