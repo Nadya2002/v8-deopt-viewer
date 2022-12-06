@@ -14,7 +14,7 @@ export async function parseV8Log(v8LogContent, options = {}) {
 }
 
 /**
- * @param {Generator<string>} v8LogStream
+ * @param {Generator<Promise<string>>} v8LogStream
  * @param {import('.').Options} [options]
  * @returns {Promise<import('.').V8DeoptInfo>}
  */
@@ -23,11 +23,11 @@ export async function parseV8LogStream(v8LogStream, options = {}) {
 
 	// we receive chunks of strings, but chunks split at random places, not \n
 	// so, lets keep leftovers from previous steps and concat them with current block
-	let leftOver = '';
+	let leftOver = "";
 	for await (const chunk of v8LogStream) {
 		const actualChunk = (leftOver + chunk).replace(/\r\n/g, "\n");
 
-		const lastLineBreak = actualChunk.lastIndexOf('\n');
+		const lastLineBreak = actualChunk.lastIndexOf("\n");
 		if (lastLineBreak !== -1) {
 			logReader.processLogChunk(actualChunk.slice(0, lastLineBreak));
 			leftOver = actualChunk.slice(lastLineBreak + 1); // skip \n

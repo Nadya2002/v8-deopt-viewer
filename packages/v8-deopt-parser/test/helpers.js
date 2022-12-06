@@ -133,8 +133,6 @@ export async function runParserNonStream(t, logFileName, options) {
 	const logPath = pkgRoot("test", "logs", logFileName);
 
 	const logContents = await readLogFile(logFileName, logPath);
-	// New IC format has 10 values instead of 9
-	const hasNewIcFormat = /\w+IC(,.*){10}/gm.test(logContents);
 
 	const origConsoleError = console.error;
 	const errorArgs = [];
@@ -145,7 +143,37 @@ export async function runParserNonStream(t, logFileName, options) {
 
 	let result;
 	try {
-		result = await parseV8Log(logContents, { ...options, hasNewIcFormat });
+		result = await parseV8Log(logContents, options);
+	} finally {
+		console.error = origConsoleError;
+	}
+
+	t.equal(errorArgs.length, 0, "No console.error calls");
+
+	return result;
+}
+
+/**
+ * @param {import('tape').Test} t
+ * @param {string} logFileName
+ * @param {import('../').Options} [options]
+ */
+export async function runParserStream(t, logFileName, options) {
+	const logPath = pkgRoot("test", "logs", logFileName);
+
+	const logContents = await readLogFile(logFileName, logPath);
+	const logStream = stream.Readable.from(logContents);
+
+	const origConsoleError = console.error;
+	const errorArgs = [];
+	console.error = function (...args) {
+		origConsoleError.apply(console, args);
+		errorArgs.push(args);
+	};
+
+	let result;
+	try {
+		result = await parseV8LogStream(logStream, options);
 	} finally {
 		console.error = origConsoleError;
 	}
@@ -174,7 +202,6 @@ export async function runParserStream(t, logFileName, options) {
 		origConsoleError.apply(console, args);
 		errorArgs.push(args);
 	};
-
 
 	let result;
 	try {

@@ -1,5 +1,11 @@
 import * as path from "path";
-import { open as openFile, readFile, writeFile, copyFile, mkdir } from "fs/promises";
+import {
+	open as openFile,
+	readFile,
+	writeFile,
+	copyFile,
+	mkdir,
+} from "fs/promises";
 import { createReadStream } from "fs";
 import { fileURLToPath, pathToFileURL } from "url";
 import open from "open";
@@ -44,7 +50,8 @@ async function addSources(deoptInfo) {
 			}
 		}
 
-		let count = info["deopts"][1] + info["deopts"][2] + info["ics"][1] + info["ics"][2];
+		let count =
+			info["deopts"][1] + info["deopts"][2] + info["ics"][1] + info["ics"][2];
 		// let count = info["deopts"][1] + info["deopts"][2] + info["deopts"][0];
 
 		arr.push([file, count]);
@@ -71,7 +78,9 @@ async function addSources(deoptInfo) {
 							process.platform == "win32" &&
 							!file.match(/^file:\/\/\/[a-zA-z]:/)
 						) {
-							filePath = fileURLToPath(file.replace(/^file:\/\/\//, "file:///C:/"));
+							filePath = fileURLToPath(
+								file.replace(/^file:\/\/\//, "file:///C:/")
+							);
 						} else {
 							filePath = fileURLToPath(file);
 						}
@@ -174,25 +183,15 @@ export default async function run(srcFile, options) {
 
 	console.log("Parsing log...");
 
-	const fd = await openFile(logFilePath);
-	const { buffer: logContentsSlice } = await fd.read({ length: 16 * 1024 });
-	await fd.close();
-
-	// New IC format has 10 values instead of 9
-	// todo parse first line - v8-version,8,4,371,19,-node.18,0, instead 
-	// https://github.com/andrewiggins/v8-deopt-viewer/issues/47
-	const hasNewIcFormat = /\w+IC(,.*){10}/.test(logContentsSlice.toString());
-
-	// Error: Cannot create a string longer than 0x1fffffe8 characters
-	// 0x1fffffe8 = ~512 * 2 ** 20
-	// 64 * 2 ** 20 (~64 mb) seems to be safe enough
-	const logContentsStream = await createReadStream(
-		logFilePath,
-		{ encoding: 'utf8', highWaterMark: 16 * 1024 },
-	);
+	// using 16mb highWaterMark instead of default 64kb, it's not saving what much, like 1 second or less,
+	// but why not
+	// Also not setting big values because of default max-old-space=512mb
+	const logContentsStream = await createReadStream(logFilePath, {
+		encoding: "utf8",
+		highWaterMark: 16 * 1024 * 1024,
+	});
 	const rawDeoptInfo = await parseV8LogStream(logContentsStream, {
 		keepInternals: options["keep-internals"],
-		hasNewIcFormat,
 	});
 
 	console.log("Adding sources...");
@@ -220,8 +219,14 @@ export default async function run(srcFile, options) {
 	// @ts-ignore
 	const require = createRequire(import.meta.url);
 	const webAppIndexPath = require.resolve("v8-deopt-webapp");
-	const webAppStylesPath = webAppIndexPath.replace(/.js$/g, ".css");
-	await copyFile(webAppIndexPath, path.join(options.out, "v8-deopt-webapp.js"));
+	const webAppStylesPath = webAppIndexPath.replace(
+		path.basename(webAppIndexPath),
+		"style.css"
+	);
+	await copyFile(
+		webAppIndexPath,
+		path.join(options.out, "v8-deopt-webapp.umd.js")
+	);
 	await copyFile(
 		webAppStylesPath,
 		path.join(options.out, "v8-deopt-webapp.css")

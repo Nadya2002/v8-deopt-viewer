@@ -1,12 +1,16 @@
-import { createElement } from "preact";
 import { useReducer } from "preact/hooks";
-import { menu, menu_item, form_icon, form_switch } from "../spectre.scss";
+import {
+	menu,
+	menu_item,
+	form_icon,
+	form_switch,
+} from "../spectre.module.scss";
 import {
 	codeSettings,
 	dirty as dirtyClass,
 	settingsBody,
-	settingsMenu
-} from "./CodeSettings.scss";
+	settingsMenu,
+} from "./CodeSettings.module.scss";
 
 /**
  * @typedef CodeSettingsState
@@ -23,7 +27,7 @@ const initialState = {
 	// to show each severity (e.g. to filter out optimizable)
 	showLowSevs: false,
 	hideLineNums: false,
-	showAllICs: false
+	showAllICs: false,
 };
 
 /**
@@ -33,7 +37,7 @@ export function useCodeSettingsState() {
 	return useReducer((state, settingToToggle) => {
 		return {
 			...state,
-			[settingToToggle]: !state[settingToToggle]
+			[settingToToggle]: !state[settingToToggle],
 		};
 	}, initialState);
 }
@@ -53,26 +57,26 @@ export function CodeSettings({ class: className, state, toggle }) {
 			key: "showLowSevs",
 			label: "Display Low Severities",
 			checked: state.showLowSevs,
-			onInput: () => toggle("showLowSevs")
+			onInput: () => toggle("showLowSevs"),
 		},
 		{
 			key: "hideLineNums",
 			label: "Hide Line Numbers",
 			checked: state.hideLineNums,
-			onInput: () => toggle("hideLineNums")
+			onInput: () => toggle("hideLineNums"),
 		},
 		{
 			key: "showAllICs",
 			label: "Show All Inline Cache Entries",
 			checked: state.showAllICs,
-			onInput: () => toggle("showAllICs")
-		}
+			onInput: () => toggle("showAllICs"),
+		},
 	];
 
 	const rootClass = [
 		codeSettings,
 		className,
-		(dirty && dirtyClass) || null
+		(dirty && dirtyClass) || null,
 	].join(" ");
 
 	// TODO: Consider replacing <details> with a custom alternative that closes on
@@ -84,7 +88,7 @@ export function CodeSettings({ class: className, state, toggle }) {
 			</summary>
 			<div class={settingsBody}>
 				<ul class={[menu, settingsMenu].join(" ")}>
-					{settings.map(setting => (
+					{settings.map((setting) => (
 						<li key={setting.key} class={menu_item}>
 							<label class={form_switch}>
 								<input
